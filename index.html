@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agenda semanal (L–V) • Indicadores 2026</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand__logo" src="./logo.png" alt="Logo" />
+          <div class="brand__text">
+            <div class="brand__title">Agenda semanal</div>
+            <div class="brand__subtitle">Lunes a viernes • Tareas por departamento y responsable</div>
+          </div>
+        </div>
+
+        <div class="topbar__actions">
+          <button id="btnNewTask" class="btn btn--primary" type="button">Nueva tarea</button>
+          <button id="btnDownload" class="btn" type="button" title="Descargar Excel con tus cambios">Descargar Excel</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="panel">
+          <section class="card">
+            <div class="card__title">Semana</div>
+            <div class="row">
+              <label class="field">
+                <span class="field__label">Seleccionar semana (Lunes)</span>
+                <input id="weekStart" class="input" type="date" />
+              </label>
+            </div>
+            <div class="row row--2">
+              <button id="btnTodayWeek" class="btn" type="button">Ir a esta semana</button>
+              <button id="btnClearWeek" class="btn btn--danger" type="button" title="Borra los datos guardados localmente">Limpiar</button>
+            </div>
+            <p class="hint">
+              Tip: esta app guarda una copia en tu navegador (local). Para alimentar desde Excel, usa “Cargar Excel”.
+            </p>
+          </section>
+
+          <section class="card">
+            <div class="card__title">Excel</div>
+            <div class="row">
+              <label class="field">
+                <span class="field__label">Cargar Excel (.xlsx)</span>
+                <input id="excelFile" class="input" type="file" accept=".xlsx,.xls,.csv" />
+              </label>
+            </div>
+            <div class="row row--2">
+              <button id="btnLoadSample" class="btn" type="button" title="Crea un ejemplo en pantalla para que veas el formato">
+                Cargar ejemplo
+              </button>
+              <button id="btnTemplate" class="btn" type="button" title="Descarga una plantilla de Excel">
+                Plantilla
+              </button>
+            </div>
+            <div class="sep"></div>
+            <div class="small">
+              Columnas esperadas: <b>Fecha</b> (o <b>Día</b>), <b>Tarea</b>, <b>Departamento</b>, <b>Responsable</b>, <b>Progreso</b>, <b>Estado</b>.
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card__title">Progreso</div>
+            <div class="progressSummary">
+              <div class="metric">
+                <div class="metric__label">Semana</div>
+                <div id="weekProgressText" class="metric__value">0%</div>
+              </div>
+              <div class="metric">
+                <div class="metric__label">Tareas</div>
+                <div id="weekTasksText" class="metric__value">0</div>
+              </div>
+            </div>
+            <div class="chartWrap">
+              <canvas id="chartWeek" height="170"></canvas>
+            </div>
+          </section>
+        </aside>
+
+        <section class="board">
+          <div class="board__head">
+            <div class="board__title">
+              <span id="weekLabel">Semana</span>
+            </div>
+            <div class="board__filters">
+              <label class="chip">
+                <span>Depto</span>
+                <select id="filterDept" class="select">
+                  <option value="">Todos</option>
+                </select>
+              </label>
+              <label class="chip">
+                <span>Responsable</span>
+                <select id="filterOwner" class="select">
+                  <option value="">Todos</option>
+                </select>
+              </label>
+              <label class="chip">
+                <span>Estado</span>
+                <select id="filterStatus" class="select">
+                  <option value="">Todos</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="En progreso">En progreso</option>
+                  <option value="Hecho">Hecho</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div id="weekGrid" class="weekGrid" aria-label="Agenda semanal"></div>
+
+          <div class="board__divider"></div>
+
+          <div class="board__section">
+            <div class="board__sectionTitle">Listado de tareas por estado</div>
+            <div id="tasksList" class="tasksList"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal -->
+    <dialog id="taskModal" class="modal">
+      <form id="taskForm" method="dialog" class="modal__content">
+        <div class="modal__head">
+          <div class="modal__title" id="modalTitle">Nueva tarea</div>
+          <button class="iconBtn" value="cancel" aria-label="Cerrar" type="submit">✕</button>
+        </div>
+
+        <div class="modal__grid">
+          <label class="field">
+            <span class="field__label">Día</span>
+            <select id="taskDay" class="select" required>
+              <option value="0">Lunes</option>
+              <option value="1">Martes</option>
+              <option value="2">Miércoles</option>
+              <option value="3">Jueves</option>
+              <option value="4">Viernes</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Fecha</span>
+            <input id="taskDate" class="input" type="date" required />
+          </label>
+
+          <label class="field field--full">
+            <span class="field__label">Tarea</span>
+            <input id="taskTitle" class="input" type="text" placeholder="Ej. Revisar nómina, actualizar expediente..." required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Departamento</span>
+            <input id="taskDept" class="input" type="text" placeholder="Ej. RH" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Responsable</span>
+            <input id="taskOwner" class="input" type="text" placeholder="Ej. Ana Pérez" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Estado</span>
+            <select id="taskStatus" class="select" required>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En progreso">En progreso</option>
+              <option value="Hecho">Hecho</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Progreso (%)</span>
+            <input id="taskProgress" class="input" type="number" min="0" max="100" step="1" value="0" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Prioridad</span>
+            <select id="taskPriority" class="select" required>
+              <option value="Alta">Alta</option>
+              <option value="Media" selected>Media</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal__foot">
+          <input type="hidden" id="taskId" />
+          <button id="btnDeleteTask" class="btn btn--danger" type="button">Eliminar</button>
+          <div class="spacer"></div>
+          <button class="btn" value="cancel" type="submit">Cancelar</button>
+          <button id="btnSaveTask" class="btn btn--primary" value="default" type="submit">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Libs (CDN). Si tu red bloquea CDN, puedo dejarlos descargados localmente. -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

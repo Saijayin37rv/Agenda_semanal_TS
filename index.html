@@ -130,7 +130,7 @@
       <form id="taskForm" method="dialog" class="modal__content">
         <div class="modal__head">
           <div class="modal__title" id="modalTitle">Nueva tarea</div>
-          <button class="iconBtn" value="cancel" aria-label="Cerrar" type="submit">✕</button>
+          <button class="iconBtn" id="btnCloseModal" aria-label="Cerrar" type="button">✕</button>
         </div>
 
         <div class="modal__grid">
@@ -146,8 +146,13 @@
           </label>
 
           <label class="field">
-            <span class="field__label">Fecha</span>
+            <span class="field__label">Fecha de inicio</span>
             <input id="taskDate" class="input" type="date" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Fecha de entrega</span>
+            <input id="taskDeliveryDate" class="input" type="date" required />
           </label>
 
           <label class="field field--full">
@@ -157,7 +162,18 @@
 
           <label class="field">
             <span class="field__label">Departamento</span>
-            <input id="taskDept" class="input" type="text" placeholder="Ej. RH" required />
+            <select id="taskDept" class="select" required>
+              <option value="">Seleccionar...</option>
+              <option value="RH">RH</option>
+              <option value="RELACIONES LABORALES">RELACIONES LABORALES</option>
+              <option value="MARKETING">MARKETING</option>
+              <option value="FINANZAS">FINANZAS</option>
+              <option value="DIRECCION">DIRECCION</option>
+              <option value="LEGAL">LEGAL</option>
+              <option value="SISTEMAS">SISTEMAS</option>
+              <option value="VENTAS">VENTAS</option>
+              <option value="MEJORA CONTINUA">MEJORA CONTINUA</option>
+            </select>
           </label>
 
           <label class="field">
@@ -176,7 +192,8 @@
 
           <label class="field">
             <span class="field__label">Progreso (%)</span>
-            <input id="taskProgress" class="input" type="number" min="0" max="100" step="1" value="0" required />
+            <input id="taskProgress" class="input" type="number" min="0" max="100" step="1" value="0" required readonly />
+            <small class="field__hint">Se calcula automáticamente según prioridad y fechas</small>
           </label>
 
           <label class="field">
@@ -193,8 +210,46 @@
           <input type="hidden" id="taskId" />
           <button id="btnDeleteTask" class="btn btn--danger" type="button">Eliminar</button>
           <div class="spacer"></div>
-          <button class="btn" value="cancel" type="submit">Cancelar</button>
-          <button id="btnSaveTask" class="btn btn--primary" value="default" type="submit">Guardar</button>
+          <button id="btnCancelTask" class="btn" type="button">Cancelar</button>
+          <button id="btnSaveTask" class="btn btn--primary" type="submit">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Modal de actualización de progreso -->
+    <dialog id="progressModal" class="modal">
+      <form id="progressForm" method="dialog" class="modal__content">
+        <div class="modal__head">
+          <div class="modal__title">Actualizar progreso</div>
+          <button class="iconBtn" id="btnCloseProgressModal" aria-label="Cerrar" type="button">✕</button>
+        </div>
+
+        <div class="modal__grid">
+          <label class="field field--full">
+            <span class="field__label">Tarea</span>
+            <input id="progressTaskTitle" class="input" type="text" readonly />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Progreso (%)</span>
+            <input id="progressValue" class="input" type="number" min="0" max="100" step="1" value="0" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Estado</span>
+            <select id="progressStatus" class="select" required>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En progreso">En progreso</option>
+              <option value="Hecho">Hecho</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal__foot">
+          <input type="hidden" id="progressTaskId" />
+          <div class="spacer"></div>
+          <button id="btnCancelProgress" class="btn" type="button">Cancelar</button>
+          <button id="btnSaveProgress" class="btn btn--primary" type="submit">Actualizar</button>
         </div>
       </form>
     </dialog>

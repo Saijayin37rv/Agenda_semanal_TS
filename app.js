@@ -66,6 +66,7 @@
     taskId: document.getElementById("taskId"),
     taskDay: document.getElementById("taskDay"),
     taskDate: document.getElementById("taskDate"),
+    taskDeliveryDate: document.getElementById("taskDeliveryDate"),
     taskTitle: document.getElementById("taskTitle"),
     taskDept: document.getElementById("taskDept"),
     taskOwner: document.getElementById("taskOwner"),
@@ -74,6 +75,17 @@
     taskPriority: document.getElementById("taskPriority"),
     btnDeleteTask: document.getElementById("btnDeleteTask"),
     tasksList: document.getElementById("tasksList"),
+    progressModal: document.getElementById("progressModal"),
+    progressForm: document.getElementById("progressForm"),
+    progressTaskId: document.getElementById("progressTaskId"),
+    progressTaskTitle: document.getElementById("progressTaskTitle"),
+    progressValue: document.getElementById("progressValue"),
+    progressStatus: document.getElementById("progressStatus"),
+    btnSaveProgress: document.getElementById("btnSaveProgress"),
+    btnCloseModal: document.getElementById("btnCloseModal"),
+    btnCancelTask: document.getElementById("btnCancelTask"),
+    btnCloseProgressModal: document.getElementById("btnCloseProgressModal"),
+    btnCancelProgress: document.getElementById("btnCancelProgress"),
   };
 
   function pad2(n) {
@@ -111,6 +123,34 @@
     const n = Number(p);
     if (Number.isNaN(n)) return 0;
     return Math.min(100, Math.max(0, Math.round(n)));
+  }
+
+  function calculateProgressByPriority(priority, startDateISO, deliveryDateISO) {
+    if (!startDateISO || !deliveryDateISO) return 0;
+    
+    const start = fromISODate(startDateISO);
+    const delivery = fromISODate(deliveryDateISO);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const totalDays = Math.max(1, Math.ceil((delivery - start) / (1000 * 60 * 60 * 24)));
+    const elapsedDays = Math.max(0, Math.ceil((today - start) / (1000 * 60 * 60 * 24)));
+    const progressRatio = Math.min(1, elapsedDays / totalDays);
+    
+    // Mapeo de prioridad a porcentajes base
+    const priorityMap = {
+      "Alta": [25, 50, 75, 100],
+      "Media": [25, 50, 75, 100],
+      "Baja": [25, 50, 75, 100],
+    };
+    
+    const percentages = priorityMap[priority] || [25, 50, 75, 100];
+    
+    // Determinar el porcentaje según el progreso del tiempo
+    if (progressRatio <= 0.25) return percentages[0];
+    if (progressRatio <= 0.5) return percentages[1];
+    if (progressRatio <= 0.75) return percentages[2];
+    return percentages[3];
   }
 
   function normalizeStatus(s, progress) {
@@ -281,24 +321,18 @@
         ? list
             .map((t) => {
               const p = clampProgress(t.progress);
-              const deptColor = getDeptColor(t.dept);
               const priorityColor = getPriorityColor(t.priority || "Media");
               const statusColor = getStatusColor(t.status, p);
               return `
                 <article class="task" data-id="${t.id}">
                   <div class="task__title">${escapeHtml(t.title)}</div>
                   <div class="task__meta">
-                    <span class="tag" style="border-left: 3px solid ${statusColor}"><span class="${statusDot(t)}"></span>${escapeHtml(t.status)}</span>
-                    <span class="tag" style="border-left: 3px solid ${deptColor}">Depto: <b>${escapeHtml(t.dept)}</b></span>
-                    <span class="tag" style="border-left: 3px solid ${priorityColor}">Prioridad: <b>${escapeHtml(t.priority || "Media")}</b></span>
-                    <span class="tag">Resp: <b>${escapeHtml(t.owner)}</b></span>
+                    <span class="tag">${escapeHtml(t.owner)}</span>
+                    <span class="tag" style="border-left: 3px solid ${priorityColor}">${escapeHtml(t.priority || "Media")}</span>
                   </div>
                   <div class="task__foot">
                     <div class="bar" aria-label="Progreso"><div style="width:${p}%; background: ${statusColor}"></div></div>
                     <div class="pct">${p}%</div>
-                    <div class="task__actions">
-                      <button class="linkBtn" type="button" data-action="edit">Editar</button>
-                    </div>
                   </div>
                 </article>
               `;
@@ -438,27 +472,19 @@
 
       const items = tasks.map((t) => {
         const p = clampProgress(t.progress);
-        const deptColor = getDeptColor(t.dept);
         const priorityColor = getPriorityColor(t.priority || "Media");
         const statusColor = getStatusColor(t.status, p);
-        const dayName = dayNameFromISO(t.dateISO);
 
         return `
           <div class="taskListItem" data-id="${t.id}">
             <div class="taskListItem__content">
               <div class="taskListItem__title">${escapeHtml(t.title)}</div>
               <div class="taskListItem__meta">
-                <span class="taskListItem__tag" style="border-left: 3px solid ${deptColor}">
-                  <b>${escapeHtml(t.dept)}</b>
-                </span>
-                <span class="taskListItem__tag" style="border-left: 3px solid ${priorityColor}">
-                  <b>${escapeHtml(t.priority || "Media")}</b>
-                </span>
                 <span class="taskListItem__tag">
                   ${escapeHtml(t.owner)}
                 </span>
-                <span class="taskListItem__tag">
-                  ${dayName} ${t.dateISO}
+                <span class="taskListItem__tag" style="border-left: 3px solid ${priorityColor}">
+                  <b>${escapeHtml(t.priority || "Media")}</b>
                 </span>
               </div>
               <div class="taskListItem__progress">
@@ -466,7 +492,10 @@
                 <span class="pct">${p}%</span>
               </div>
             </div>
-            <button class="linkBtn" type="button" data-action="edit">Editar</button>
+            <div class="taskListItem__actions">
+              <button class="linkBtn" type="button" data-action="progress">Progreso</button>
+              <button class="linkBtn" type="button" data-action="edit">Editar</button>
+            </div>
           </div>
         `;
       }).join("");
@@ -486,15 +515,22 @@
 
     el.tasksList.innerHTML = sections || '<div class="empty">No hay tareas para mostrar.</div>';
 
-    // Wire edit buttons
+    // Wire edit and progress buttons
     el.tasksList.addEventListener("click", (ev) => {
-      const btn = ev.target.closest("button[data-action='edit']");
+      const btn = ev.target.closest("button[data-action]");
       if (!btn) return;
+      const action = btn.getAttribute("data-action");
       const item = ev.target.closest(".taskListItem");
       if (!item) return;
       const id = item.getAttribute("data-id");
       const t = state.tasks.find((x) => x.id === id);
-      if (t) openModal(t);
+      if (!t) return;
+      
+      if (action === "edit") {
+        openModal(t);
+      } else if (action === "progress") {
+        openProgressModal(t);
+      }
     });
   }
 
@@ -505,6 +541,7 @@
       el.taskId.value = "";
       el.taskDay.value = "0";
       el.taskDate.value = addDays(weekStart, 0);
+      el.taskDeliveryDate.value = addDays(weekStart, 4);
       el.taskTitle.value = "";
       el.taskDept.value = "";
       el.taskOwner.value = "";
@@ -516,6 +553,7 @@
       el.modalTitle.textContent = "Editar tarea";
       el.taskId.value = task.id;
       el.taskDate.value = task.dateISO;
+      el.taskDeliveryDate.value = task.deliveryDateISO || task.dateISO;
       const idx = dayIndexFromISODate(weekStart, task.dateISO);
       el.taskDay.value = String(Math.min(4, Math.max(0, idx)));
       el.taskTitle.value = task.title ?? "";
@@ -527,22 +565,55 @@
       el.btnDeleteTask.style.display = "inline-flex";
     }
 
+    // Calculate progress when priority or dates change
+    const updateProgress = () => {
+      const priority = el.taskPriority.value;
+      const startDate = el.taskDate.value;
+      const deliveryDate = el.taskDeliveryDate.value;
+      if (priority && startDate && deliveryDate) {
+        const calculated = calculateProgressByPriority(priority, startDate, deliveryDate);
+        el.taskProgress.value = String(calculated);
+      }
+    };
+
+    // Set up one-time handlers for this modal session
+    const priorityHandler = () => updateProgress();
+    const dateHandler = () => updateProgress();
+    const deliveryHandler = () => updateProgress();
+    
+    el.taskPriority.onchange = priorityHandler;
+    el.taskDate.onchange = dateHandler;
+    el.taskDeliveryDate.onchange = deliveryHandler;
+    updateProgress();
+
     // Keep date/day in sync
     el.taskDay.onchange = () => {
       el.taskDate.value = addDays(weekStart, Number(el.taskDay.value));
+      updateProgress();
     };
     el.taskDate.onchange = () => {
       const idx = dayIndexFromISODate(weekStart, el.taskDate.value);
       if (idx >= 0 && idx <= 4) el.taskDay.value = String(idx);
+      updateProgress();
     };
 
     el.modal.showModal();
+  }
+
+  function openProgressModal(task) {
+    if (!task) return;
+    el.progressTaskId.value = task.id;
+    el.progressTaskTitle.value = task.title ?? "";
+    el.progressValue.value = String(clampProgress(task.progress));
+    el.progressStatus.value = task.status ?? "Pendiente";
+    el.progressModal.showModal();
   }
 
   function upsertTaskFromModal() {
     const weekStart = getWeekStartISO();
     const id = el.taskId.value || uid();
     const dateISO = el.taskDate.value;
+    const deliveryDateISO = el.taskDeliveryDate.value || dateISO;
     const idx = dayIndexFromISODate(weekStart, dateISO);
     const safeIdx = idx >= 0 && idx <= 4 ? idx : Number(el.taskDay.value);
     const fixedDate = addDays(weekStart, safeIdx);
@@ -550,16 +621,43 @@
     const title = el.taskTitle.value.trim();
     const dept = el.taskDept.value.trim();
     const owner = el.taskOwner.value.trim();
+    const priority = el.taskPriority.value || "Media";
     const progress = clampProgress(el.taskProgress.value);
     const status = normalizeStatus(el.taskStatus.value, progress);
-    const priority = el.taskPriority.value || "Media";
 
     if (!title || !dept || !owner) return null;
 
-    const task = { id, dateISO: fixedDate, title, dept, owner, progress, status, priority };
+    const task = { 
+      id, 
+      dateISO: fixedDate, 
+      deliveryDateISO,
+      title, 
+      dept, 
+      owner, 
+      progress, 
+      status, 
+      priority 
+    };
     const idxExisting = state.tasks.findIndex((t) => t.id === id);
     if (idxExisting >= 0) state.tasks[idxExisting] = task;
     else state.tasks.push(task);
+    saveState();
+    return task;
+  }
+
+  function updateTaskProgress() {
+    const id = el.progressTaskId.value;
+    if (!id) return null;
+    
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task) return null;
+
+    const progress = clampProgress(el.progressValue.value);
+    const status = normalizeStatus(el.progressStatus.value, progress);
+    
+    task.progress = progress;
+    task.status = status;
+    
     saveState();
     return task;
   }
@@ -575,6 +673,7 @@
       .sort((a, b) => (a.dateISO === b.dateISO ? a.title.localeCompare(b.title) : a.dateISO.localeCompare(b.dateISO)))
       .map((t) => ({
         Fecha: t.dateISO,
+        "Fecha de entrega": t.deliveryDateISO || t.dateISO,
         Día: dayNameFromISO(t.dateISO),
         Tarea: t.title,
         Departamento: t.dept,
@@ -730,9 +829,13 @@
       const safeIdx = idxInWeek >= 0 && idxInWeek <= 4 ? idxInWeek : 0;
       const fixedDate = addDays(weekStartISO, safeIdx);
 
+      const deliveryDateRaw = pickAny(r, ["Fecha de entrega", "Fecha Entrega", "Entrega", "Delivery Date"]);
+      const deliveryDateISO = excelDateToISO(deliveryDateRaw) || fixedDate;
+
       imported.push({
         id: uid(),
         dateISO: fixedDate,
+        deliveryDateISO,
         title,
         dept: dept || "—",
         owner: owner || "—",
@@ -795,16 +898,6 @@
 
     el.btnNewTask.addEventListener("click", () => openModal(null));
 
-    el.weekGrid.addEventListener("click", (ev) => {
-      const btn = ev.target.closest("button[data-action='edit']");
-      if (!btn) return;
-      const card = ev.target.closest(".task");
-      if (!card) return;
-      const id = card.getAttribute("data-id");
-      const t = state.tasks.find((x) => x.id === id);
-      if (t) openModal(t);
-    });
-
     el.form.addEventListener("submit", (ev) => {
       // Dialog will close by default; we keep it, validate, then close.
       ev.preventDefault();
@@ -815,6 +908,33 @@
       }
       el.modal.close();
       render();
+    });
+
+    el.progressForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const task = updateTaskProgress();
+      if (!task) {
+        alert("No se pudo actualizar el progreso.");
+        return;
+      }
+      el.progressModal.close();
+      render();
+    });
+
+    // Close modal buttons (without validation)
+    el.btnCloseModal.addEventListener("click", () => {
+      el.modal.close();
+    });
+    el.btnCancelTask.addEventListener("click", () => {
+      el.modal.close();
+    });
+
+    // Close progress modal buttons (without validation)
+    el.btnCloseProgressModal.addEventListener("click", () => {
+      el.progressModal.close();
+    });
+    el.btnCancelProgress.addEventListener("click", () => {
+      el.progressModal.close();
     });
 
     el.btnDeleteTask.addEventListener("click", () => {
